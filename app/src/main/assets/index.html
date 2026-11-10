@@ -12,9 +12,9 @@ label{font-size:13px;font-weight:700;display:block;margin:0 0 7px}input[type=tex
 button,.filebtn{border:0;border-radius:11px;padding:13px 15px;font-weight:700;font-size:14px;cursor:pointer}
 .primary{background:var(--blue);color:white;width:100%}.secondary{background:#eaf1fc;color:#174ea6}.muted{font-size:12px;color:#68788f;line-height:1.5}
 #editor{position:relative;background:#eef2f8;border:1px dashed #aab9ce;border-radius:12px;min-height:290px;overflow:hidden;margin-top:10px}
-.photo{position:absolute;object-fit:contain;touch-action:none;user-select:none;border:2px solid transparent;max-width:none}
+#titleLayer{position:absolute;left:0;top:8px;width:100%;min-height:30px;padding:2px 8px;text-align:center;font-weight:700;font-size:22px;line-height:1.2;color:#172b4d;white-space:pre-wrap;overflow-wrap:anywhere;touch-action:none;user-select:none;z-index:8;cursor:ns-resize;background:#ffffff35;border:1px dashed #8aa5c8;border-radius:6px}.photo{position:absolute;object-fit:contain;touch-action:none;user-select:none;border:2px solid transparent;max-width:none}
 .photo.selected{border:2px solid #2675d8}.handle{position:absolute;width:18px;height:18px;background:#2675d8;border:2px solid white;border-radius:50%;right:-9px;bottom:-9px;z-index:5}
-.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tools button{flex:1;min-width:90px}
+.title-tools{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.title-tools button{flex:1;min-width:75px}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tools button{flex:1;min-width:90px}
 #status{margin-top:10px;font-size:12px;color:#52647d;white-space:pre-wrap}.preview-modal{display:none;position:fixed;inset:0;background:#101828eF;z-index:20;padding:14px;overflow:auto}.preview-card{max-width:760px;margin:0 auto;background:#f3f6fb;border-radius:16px;padding:12px}.preview-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}.preview-head strong{font-size:16px}.preview-paper{background:#dfe5ee;padding:10px;border-radius:10px;text-align:center;min-height:65vh}.preview-paper canvas{max-width:100%;height:auto!important;box-shadow:0 2px 12px #0003;background:white}.preview-actions{display:flex;gap:8px;margin-top:10px}.preview-actions button{flex:1}.close-preview{background:#e3eaf4;color:#17345e}
 </style></head><body>
 <header><h1>ReL Dokumentasi Kerja</h1><p>Dokumentasi kegiatan • PDF • Google Drive</p></header>
@@ -23,7 +23,8 @@ button,.filebtn{border:0;border-radius:11px;padding:13px 15px;font-weight:700;fo
 <div style="height:14px"></div><label>Foto dokumentasi (maksimal 4 foto per halaman)</label>
 <input id="photos" type="file" accept="image/*" multiple style="width:100%;font-size:13px">
 <p class="muted">Pilih 2–4 foto. Ketuk foto untuk memilih, geser untuk memindahkan, dan tarik bulatan biru untuk mengubah ukuran.</p>
-<div id="editor"></div>
+<div id="editor"><div id="titleLayer">Judul kegiatan</div></div>
+<div class="title-tools"><button class="secondary" id="titleUp">Judul naik</button><button class="secondary" id="titleDown">Judul turun</button><button class="secondary" id="titleSmaller">A− Kecil</button><button class="secondary" id="titleBigger">A+ Besar</button></div>
 <div class="tools"><button class="secondary" id="smaller">Perkecil</button><button class="secondary" id="bigger">Perbesar</button><button class="secondary" id="reset">Reset tata letak</button><button class="secondary" id="remove">Hapus foto</button></div>
 </section>
 <section class="panel"><label>Hasil PDF</label><p class="muted">PDF berisi judul kegiatan di bagian atas dan foto sesuai tata letak yang Anda atur. Tidak ada tanggal atau tulisan tambahan.</p>
@@ -35,8 +36,16 @@ button,.filebtn{border:0;border-radius:11px;padding:13px 15px;font-weight:700;fo
 </main>
 <div class="preview-modal" id="previewModal"><div class="preview-card"><div class="preview-head"><strong>Preview Dokumen PDF</strong><button class="close-preview" id="closePreview">Tutup</button></div><div class="preview-paper" id="previewPaper"><p class="muted">Menyiapkan preview...</p></div><div class="preview-actions"><button class="secondary" id="backEdit">Kembali mengatur</button><button class="primary" id="savePdf">Simpan PDF</button></div></div></div>
 <script>
-const input=document.getElementById('photos'), editor=document.getElementById('editor'), status=document.getElementById('status');
-let items=[],selected=null,drag=null;
+const input=document.getElementById('photos'), editor=document.getElementById('editor'), status=document.getElementById('status'), titleInput=document.getElementById('title'), titleLayer=document.getElementById('titleLayer');
+let items=[],selected=null,drag=null,titleSize=22,titleTop=8,titleDrag=null;
+titleInput.addEventListener('input',()=>{titleLayer.textContent=titleInput.value||'Judul kegiatan'});
+titleLayer.addEventListener('pointerdown',e=>{titleDrag={y:e.clientY,top:titleTop};titleLayer.setPointerCapture(e.pointerId);e.preventDefault()});
+titleLayer.addEventListener('pointermove',e=>{if(!titleDrag)return;titleTop=Math.max(0,Math.min(editor.clientHeight-titleLayer.offsetHeight,titleDrag.top+e.clientY-titleDrag.y));titleLayer.style.top=titleTop+'px'});
+titleLayer.addEventListener('pointerup',()=>titleDrag=null);titleLayer.addEventListener('pointercancel',()=>titleDrag=null);
+document.getElementById('titleUp').onclick=()=>{titleTop=Math.max(0,titleTop-8);titleLayer.style.top=titleTop+'px'};
+document.getElementById('titleDown').onclick=()=>{titleTop=Math.min(editor.clientHeight-titleLayer.offsetHeight,titleTop+8);titleLayer.style.top=titleTop+'px'};
+document.getElementById('titleBigger').onclick=()=>{titleSize=Math.min(48,titleSize+2);titleLayer.style.fontSize=titleSize+'px'};
+document.getElementById('titleSmaller').onclick=()=>{titleSize=Math.max(10,titleSize-2);titleLayer.style.fontSize=titleSize+'px'};
 function select(el){document.querySelectorAll('.photo').forEach(x=>x.classList.remove('selected'));selected=el;if(el)el.classList.add('selected')}
 function layout(){
  const w=editor.clientWidth; editor.style.height=Math.max(290,Math.round(w*1.05))+'px';
@@ -90,9 +99,11 @@ function validateDocument(){
 function buildPdfBlob(){
  const title=document.getElementById('title').value.trim();
  const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'}),pageW=210,pageH=297,margin=12;
- pdf.setFont('helvetica','bold');pdf.setFontSize(16);
- let lines=pdf.splitTextToSize(title,pageW-2*margin);pdf.text(lines,pageW/2,18,{align:'center'});
- let titleH=lines.length*7,availY=25+titleH,availH=pageH-availY-12,rect=editor.getBoundingClientRect();
+ let rect=editor.getBoundingClientRect(),titleRect=titleLayer.getBoundingClientRect();
+ let ty=Math.max(0,(titleRect.top-rect.top)/rect.height*pageH),fontPt=titleSize*.75;
+ pdf.setFont('helvetica','bold');pdf.setFontSize(fontPt);
+ let lines=pdf.splitTextToSize(title,pageW-2*margin);pdf.text(lines,pageW/2,ty+fontPt*.35,{align:'center'});
+ let availY=25,availH=pageH-37;
  for(let it of items){
   let r=it.el.getBoundingClientRect();
   let x=Math.max(0,(r.left-rect.left)/rect.width*pageW);
@@ -128,11 +139,12 @@ function closePreview(){document.getElementById('previewModal').style.display='n
 document.getElementById('previewPdf').onclick=showPdfPreview;
 document.getElementById('closePreview').onclick=closePreview;
 document.getElementById('backEdit').onclick=closePreview;
-document.getElementById('savePdf').onclick=()=>{
+document.getElementById('savePdf').onclick=async()=>{
  if(!currentPdfBlob){status.textContent='Buat preview terlebih dahulu.';closePreview();return}
- const url=URL.createObjectURL(currentPdfBlob),a=document.createElement('a');a.href=url;a.download=currentPdfName;
- document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
- closePreview();status.textContent='PDF berhasil disimpan ke perangkat.';
+ try{const buffer=await currentPdfBlob.arrayBuffer();const bytes=new Uint8Array(buffer);let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));const base64=btoa(binary);
+ if(window.AndroidBridge&&AndroidBridge.savePdf){const ok=AndroidBridge.savePdf(base64,currentPdfName);if(!ok)throw new Error('Gagal menulis PDF');closePreview();status.textContent='PDF berhasil disimpan. Periksa folder Download/ReL Dokumentasi Kerja.';}
+ else{const url=URL.createObjectURL(currentPdfBlob),a=document.createElement('a');a.href=url;a.download=currentPdfName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);closePreview();status.textContent='Permintaan unduh PDF dikirim. Periksa folder Download.';}
+ }catch(err){status.textContent='PDF gagal disimpan. Silakan coba lagi.';console.error(err)}
 };
 document.getElementById('drive').onclick=()=>status.textContent='Integrasi Google Drive belum diaktifkan. Jangan masukkan password Gmail ke aplikasi; tahap berikutnya menggunakan login Google OAuth resmi.';
 </script></body></html>
