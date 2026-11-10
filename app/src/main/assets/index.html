@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ReL Dokumentasi Kerja</title>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<style>
+:root{--blue:#174ea6;--bg:#f3f6fb;--ink:#172b4d}*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--ink)}
+header{background:linear-gradient(120deg,#123b78,#2875cf);color:white;padding:22px 18px 25px;border-radius:0 0 22px 22px}
+header h1{font-size:22px;margin:0 0 6px}header p{margin:0;opacity:.85;font-size:13px}
+main{padding:15px;max-width:760px;margin:auto}.panel{background:white;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 3px 14px #102b5010}
+label{font-size:13px;font-weight:700;display:block;margin:0 0 7px}input[type=text]{width:100%;padding:13px;border:1px solid #d5deeb;border-radius:10px;font-size:15px}
+button,.filebtn{border:0;border-radius:11px;padding:13px 15px;font-weight:700;font-size:14px;cursor:pointer}
+.primary{background:var(--blue);color:white;width:100%}.secondary{background:#eaf1fc;color:#174ea6}.muted{font-size:12px;color:#68788f;line-height:1.5}
+#editor{position:relative;background:#eef2f8;border:1px dashed #aab9ce;border-radius:12px;min-height:290px;overflow:hidden;margin-top:10px}
+.photo{position:absolute;object-fit:contain;touch-action:none;user-select:none;border:2px solid transparent;max-width:none}
+.photo.selected{border:2px solid #2675d8}.handle{position:absolute;width:18px;height:18px;background:#2675d8;border:2px solid white;border-radius:50%;right:-9px;bottom:-9px;z-index:5}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tools button{flex:1;min-width:90px}
+#status{margin-top:10px;font-size:12px;color:#52647d;white-space:pre-wrap}
+</style></head><body>
+<header><h1>ReL Dokumentasi Kerja</h1><p>Dokumentasi kegiatan • PDF • Google Drive</p></header>
+<main>
+<section class="panel"><label>Judul kegiatan</label><input id="title" type="text" placeholder="Masukkan judul kegiatan">
+<div style="height:14px"></div><label>Foto dokumentasi (maksimal 4 foto per halaman)</label>
+<input id="photos" type="file" accept="image/*" multiple style="width:100%;font-size:13px">
+<p class="muted">Pilih 2–4 foto. Ketuk foto untuk memilih, geser untuk memindahkan, dan tarik bulatan biru untuk mengubah ukuran.</p>
+<div id="editor"></div>
+<div class="tools"><button class="secondary" id="smaller">Perkecil</button><button class="secondary" id="bigger">Perbesar</button><button class="secondary" id="reset">Reset tata letak</button><button class="secondary" id="remove">Hapus foto</button></div>
+</section>
+<section class="panel"><label>Hasil PDF</label><p class="muted">PDF berisi judul kegiatan di bagian atas dan foto sesuai tata letak yang Anda atur. Tidak ada tanggal atau tulisan tambahan.</p>
+<button class="primary" id="makePdf">Buat & simpan PDF</button>
+<div style="height:10px"></div><button class="secondary" style="width:100%" id="drive" disabled>Upload ke Google Drive (tahap integrasi berikutnya)</button>
+<div id="status">Tahap prototipe: editor foto dan ekspor PDF lokal disiapkan terlebih dahulu. Integrasi Google Drive memerlukan konfigurasi OAuth milik aplikasi.</div>
+</section>
+</main>
+<script>
+const input=document.getElementById('photos'), editor=document.getElementById('editor'), status=document.getElementById('status');
+let items=[],selected=null,drag=null;
+function select(el){document.querySelectorAll('.photo').forEach(x=>x.classList.remove('selected'));selected=el;if(el)el.classList.add('selected')}
+function layout(){
+ const w=editor.clientWidth; editor.style.height=Math.max(290,Math.round(w*1.05))+'px';
+ items.forEach((it,i)=>{let el=it.el;if(!it.userMoved){let cols=items.length===1?1:2, rows=Math.ceil(items.length/cols),cw=(w-30-(cols-1)*12)/cols,ch=(editor.clientHeight-30-(rows-1)*12)/rows;el.style.left=(15+(i%cols)*(cw+12))+'px';el.style.top=(15+Math.floor(i/cols)*(ch+12))+'px';el.style.width=cw+'px';el.style.height=ch+'px';}});
+}
+function addPhoto(file){let url=URL.createObjectURL(file),el=document.createElement('img');el.className='photo';el.src=url;editor.appendChild(el);let it={el,url,userMoved:false};items.push(it);
+ el.addEventListener('pointerdown',e=>{select(el);let r=el.getBoundingClientRect(),resize=(e.clientX>r.right-24&&e.clientY>r.bottom-24);drag={it,startX:e.clientX,startY:e.clientY,left:parseFloat(el.style.left),top:parseFloat(el.style.top),width:parseFloat(el.style.width),height:parseFloat(el.style.height),resize};el.setPointerCapture(e.pointerId);e.preventDefault();});
+ el.addEventListener('pointermove',e=>{if(!drag||drag.it!==it)return;let dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;if(drag.resize){el.style.width=Math.max(65,drag.width+dx)+'px';el.style.height=Math.max(55,drag.height+dy)+'px';}else{el.style.left=Math.max(0,drag.left+dx)+'px';el.style.top=Math.max(0,drag.top+dy)+'px';}it.userMoved=true;});
+ el.addEventListener('pointerup',()=>drag=null);el.addEventListener('pointercancel',()=>drag=null);
+}
+input.addEventListener('change',e=>{items.forEach(x=>{URL.revokeObjectURL(x.url);x.el.remove()});items=[];select(null);[...e.target.files].slice(0,4).forEach(addPhoto);layout();status.textContent=items.length+' foto dipilih.';});
+window.addEventListener('resize',layout);
+document.getElementById('bigger').onclick=()=>{if(selected){selected.style.width=(parseFloat(selected.style.width)*1.12)+'px';selected.style.height=(parseFloat(selected.style.height)*1.12)+'px';items.find(x=>x.el===selected).userMoved=true}};
+document.getElementById('smaller').onclick=()=>{if(selected){selected.style.width=(parseFloat(selected.style.width)*.88)+'px';selected.style.height=(parseFloat(selected.style.height)*.88)+'px';items.find(x=>x.el===selected).userMoved=true}};
+document.getElementById('remove').onclick=()=>{if(selected){let i=items.findIndex(x=>x.el===selected);URL.revokeObjectURL(items[i].url);items.splice(i,1);selected.remove();select(null);layout()}};
+document.getElementById('reset').onclick=()=>{items.forEach(x=>x.userMoved=false);layout();select(null)};
+document.getElementById('makePdf').onclick=async()=>{
+ const title=document.getElementById('title').value.trim();if(!title){status.textContent='Masukkan judul kegiatan terlebih dahulu.';return}if(!items.length){status.textContent='Pilih foto dokumentasi terlebih dahulu.';return}
+ if(!window.jspdf){status.textContent='Komponen PDF belum termuat. Periksa koneksi internet lalu coba lagi.';return}
+ const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'}),pageW=210,pageH=297,margin=12;
+ pdf.setFont('helvetica','bold');pdf.setFontSize(16);let lines=pdf.splitTextToSize(title, pageW-2*margin);pdf.text(lines,pageW/2,18,{align:'center'});
+ let titleH=lines.length*7, availY=25+titleH, availH=pageH-availY-12, rect=editor.getBoundingClientRect();
+ for(let it of items){let r=it.el.getBoundingClientRect(),x=(r.left-rect.left)/rect.width*pageW,y=(r.top-rect.top)/rect.height*availH+availY,w=r.width/rect.width*pageW,h=r.height/rect.height*availH;
+  let c=document.createElement('canvas'),iw=it.el.naturalWidth,ih=it.el.naturalHeight;c.width=iw;c.height=ih;c.getContext('2d').drawImage(it.el,0,0);let data=c.toDataURL('image/jpeg',.88);
+  let scale=Math.min(w/iw,h/ih);let dw=iw*scale,dh=ih*scale;pdf.addImage(data,'JPEG',x+(w-dw)/2,y+(h-dh)/2,dw,dh);
+ }
+ let safe=title.replace(/[^a-z0-9 _-]/gi,'').trim().replace(/\s+/g,'_').slice(0,60)||'Dokumentasi_Kegiatan';pdf.save(safe+'.pdf');status.textContent='PDF berhasil dibuat dan diunduh ke perangkat. Upload Drive akan diaktifkan setelah integrasi Google OAuth selesai.';
+};
+document.getElementById('drive').onclick=()=>status.textContent='Integrasi Google Drive belum diaktifkan. Jangan masukkan password Gmail ke aplikasi; tahap berikutnya menggunakan login Google OAuth resmi.';
+</script></body></html>
