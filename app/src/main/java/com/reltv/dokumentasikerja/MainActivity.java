@@ -8,6 +8,15 @@ import android.webkit.WebSettings;
 import android.webkit.ValueCallback;
 import android.content.Intent;
 import android.net.Uri;
+import android.webkit.JavascriptInterface;
+import android.os.Environment;
+import android.os.Build;
+import android.provider.MediaStore;
+import android.content.ContentValues;
+import java.io.OutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import android.util.Base64;
 import android.content.ClipData;
 import java.util.ArrayList;
 
@@ -24,6 +33,7 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        webView.addJavascriptInterface(new PdfBridge(), "AndroidBridge");
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
@@ -49,6 +59,49 @@ public class MainActivity extends Activity {
         });
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
+    }
+
+
+    private class PdfBridge {
+        @JavascriptInterface
+        public boolean savePdf(String base64, String filename) {
+            try {
+                byte[] data = Base64.decode(base64, Base64.DEFAULT);
+                String safeName = (filename == null ? "Dokumentasi_Kegiatan.pdf" : filename)
+                        .replaceAll("[^A-Za-z0-9._-]", "_");
+                if (!safeName.toLowerCase().endsWith(".pdf")) safeName += ".pdf";
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                    values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                    values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ReL Dokumentasi Kerja");
+                    values.put(MediaStore.Downloads.IS_PENDING, 1);
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (uri == null) return false;
+                    try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                        if (out == null) throw new Exception("Output stream tidak tersedia");
+                        out.write(data);
+                        out.flush();
+                    }
+                    values.clear();
+                    values.put(MediaStore.Downloads.IS_PENDING, 0);
+                    getContentResolver().update(uri, values, null, null);
+                    return true;
+                } else {
+                    File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                    if (dir == null) return false;
+                    if (!dir.exists() && !dir.mkdirs()) return false;
+                    try (FileOutputStream out = new FileOutputStream(new File(dir, safeName))) {
+                        out.write(data);
+                        out.flush();
+                    }
+                    return true;
+                }
+            } catch (Exception e) {
+                android.util.Log.e("ReLDokumentasi", "Gagal menyimpan PDF", e);
+                return false;
+            }
+        }
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
