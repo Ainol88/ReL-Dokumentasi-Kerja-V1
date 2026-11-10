@@ -39,16 +39,41 @@ function layout(){
  const w=editor.clientWidth; editor.style.height=Math.max(290,Math.round(w*1.05))+'px';
  items.forEach((it,i)=>{let el=it.el;if(!it.userMoved){let cols=items.length===1?1:2, rows=Math.ceil(items.length/cols),cw=(w-30-(cols-1)*12)/cols,ch=(editor.clientHeight-30-(rows-1)*12)/rows;el.style.left=(15+(i%cols)*(cw+12))+'px';el.style.top=(15+Math.floor(i/cols)*(ch+12))+'px';el.style.width=cw+'px';el.style.height=ch+'px';}});
 }
-function addPhoto(file){let url=URL.createObjectURL(file),el=document.createElement('img');el.className='photo';el.src=url;editor.appendChild(el);let it={el,url,userMoved:false};items.push(it);
- el.addEventListener('pointerdown',e=>{select(el);let r=el.getBoundingClientRect(),resize=(e.clientX>r.right-24&&e.clientY>r.bottom-24);drag={it,startX:e.clientX,startY:e.clientY,left:parseFloat(el.style.left),top:parseFloat(el.style.top),width:parseFloat(el.style.width),height:parseFloat(el.style.height),resize};el.setPointerCapture(e.pointerId);e.preventDefault();});
- el.addEventListener('pointermove',e=>{if(!drag||drag.it!==it)return;let dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;if(drag.resize){el.style.width=Math.max(65,drag.width+dx)+'px';el.style.height=Math.max(55,drag.height+dy)+'px';}else{el.style.left=Math.max(0,drag.left+dx)+'px';el.style.top=Math.max(0,drag.top+dy)+'px';}it.userMoved=true;});
- el.addEventListener('pointerup',()=>drag=null);el.addEventListener('pointercancel',()=>drag=null);
+function addPhoto(file){
+ return new Promise(resolve=>{
+  if(!file || !file.type || !file.type.startsWith('image/')){resolve(false);return;}
+  const reader=new FileReader();
+  reader.onload=()=>{
+   let el=document.createElement('img');el.className='photo';
+   let it={el,url:null,userMoved:false};
+   el.onload=()=>{
+    editor.appendChild(el);items.push(it);layout();
+    el.addEventListener('pointerdown',e=>{select(el);let r=el.getBoundingClientRect(),resize=(e.clientX>r.right-24&&e.clientY>r.bottom-24);drag={it,startX:e.clientX,startY:e.clientY,left:parseFloat(el.style.left),top:parseFloat(el.style.top),width:parseFloat(el.style.width),height:parseFloat(el.style.height),resize};el.setPointerCapture(e.pointerId);e.preventDefault();});
+    el.addEventListener('pointermove',e=>{if(!drag||drag.it!==it)return;let dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;if(drag.resize){el.style.width=Math.max(65,drag.width+dx)+'px';el.style.height=Math.max(55,drag.height+dy)+'px';}else{el.style.left=Math.max(0,drag.left+dx)+'px';el.style.top=Math.max(0,drag.top+dy)+'px';}it.userMoved=true;});
+    el.addEventListener('pointerup',()=>drag=null);el.addEventListener('pointercancel',()=>drag=null);
+    resolve(true);
+   };
+   el.onerror=()=>resolve(false);
+   el.src=reader.result;
+  };
+  reader.onerror=()=>resolve(false);
+  reader.readAsDataURL(file);
+ });
 }
-input.addEventListener('change',e=>{items.forEach(x=>{URL.revokeObjectURL(x.url);x.el.remove()});items=[];select(null);[...e.target.files].slice(0,4).forEach(addPhoto);layout();status.textContent=items.length+' foto dipilih.';});
+input.addEventListener('change',async e=>{
+ items.forEach(x=>{if(x.url)URL.revokeObjectURL(x.url);x.el.remove()});items=[];select(null);
+ const files=[...e.target.files].filter(f=>f.type&&f.type.startsWith('image/')).slice(0,4);
+ status.textContent='Memuat foto...';
+ let loaded=0;
+ for(const file of files){if(await addPhoto(file))loaded++;}
+ layout();
+ status.textContent=loaded?loaded+' foto berhasil ditampilkan.':'Foto belum dapat dibaca. Silakan coba pilih foto lain.';
+ input.value='';
+});
 window.addEventListener('resize',layout);
 document.getElementById('bigger').onclick=()=>{if(selected){selected.style.width=(parseFloat(selected.style.width)*1.12)+'px';selected.style.height=(parseFloat(selected.style.height)*1.12)+'px';items.find(x=>x.el===selected).userMoved=true}};
 document.getElementById('smaller').onclick=()=>{if(selected){selected.style.width=(parseFloat(selected.style.width)*.88)+'px';selected.style.height=(parseFloat(selected.style.height)*.88)+'px';items.find(x=>x.el===selected).userMoved=true}};
-document.getElementById('remove').onclick=()=>{if(selected){let i=items.findIndex(x=>x.el===selected);URL.revokeObjectURL(items[i].url);items.splice(i,1);selected.remove();select(null);layout()}};
+document.getElementById('remove').onclick=()=>{if(selected){let i=items.findIndex(x=>x.el===selected);if(items[i].url)URL.revokeObjectURL(items[i].url);items.splice(i,1);selected.remove();select(null);layout()}};
 document.getElementById('reset').onclick=()=>{items.forEach(x=>x.userMoved=false);layout();select(null)};
 document.getElementById('makePdf').onclick=async()=>{
  const title=document.getElementById('title').value.trim();if(!title){status.textContent='Masukkan judul kegiatan terlebih dahulu.';return}if(!items.length){status.textContent='Pilih foto dokumentasi terlebih dahulu.';return}
